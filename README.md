@@ -4,7 +4,7 @@ An [AuroraPatch](https://github.com/Aurora-Modders/AuroraPatch) patch that stops
 
 ## What Aurora does
 
-Aurora 3.3 added five checks. None of them shows a warning; each one silently disables part of the game. NoModCheck tracks the current public Aurora release, 3.3.1, where the checks are the same as in 3.3.0 apart from renamed obfuscated identifiers:
+Aurora 3.3 added six checks. None of them shows a warning; each one silently disables part of the game. NoModCheck tracks the current public Aurora release, 3.3.1, where the checks are the same as in 3.3.0 apart from renamed obfuscated identifiers:
 
 | # | Check (3.3.1 obfuscated name) | Trigger | Effect |
 |---|---|---|---|
@@ -13,8 +13,9 @@ Aurora 3.3 added five checks. None of them shows a warning; each one silently di
 | 3 | Economics `Load` (`hx.ey`) | Same as above | The window opens but its setup is skipped (empty population list) |
 | 4 | Shipyard "Create Task" (`hx.eb`) | The process file name doesn't end with `Aurora.exe` | The button does nothing |
 | 5 | Commanders race selector (`a6.ab`) | Any `AuroraPatch` frame on the call stack | The selector does nothing (empty commander tree) |
+| 6 | Startup counter `l4.ad` (`l1.ac` in 3.3.0) | The entry point never ran, because AuroraPatch constructs the TacticalMap itself | Fleet window "Add Move" and the map's double-click do nothing |
 
-Checks 2–5 fire whenever the game is started by AuroraPatch, even with no patches loaded. Check 1 needs at least one Harmony patch on Aurora.
+Checks 2–6 fire whenever the game is started by AuroraPatch, even with no patches loaded. Check 1 needs at least one Harmony patch on Aurora.
 
 ## What NoModCheck does
 
@@ -23,6 +24,7 @@ Checks 2–5 fire whenever the game is started by AuroraPatch, even with no patc
   - `GetEntryAssembly()` returns the Aurora assembly.
   - `ProcessModule.FileName` returns the path of `Aurora.exe`.
   - `StackTrace.GetFrames()` returns the frames with AuroraPatch's frames removed.
+- **Check 6:** the counter is located from the entry point (the only code that increments it during a normal start) and the value it is compared against is read out of the game's own gate, so neither the field name nor the magic number is hardcoded. A Harmony postfix on the constructor that would have supplied the second increment then sets it.
 
 The targets are found by what their code contains (the `"GetAllPatchedMethods"` string, and calls to those three APIs), not by obfuscated name, so it keeps working when a new build renames them. It worked unchanged when 3.3.1 renamed `l1`/`hu` to `l4`/`hx`. On versions before 3.3 it finds nothing and logs that.
 
@@ -38,6 +40,8 @@ Patch NoModCheck: a6.ab: environment checks redirected
 Patch NoModCheck: gk.ej: environment checks redirected
 Patch NoModCheck: hx.ey: environment checks redirected
 Patch NoModCheck: hx.eb: environment checks redirected
+Patch NoModCheck: startup counter: l4.ad expected to be 25 after a normal start
+Patch NoModCheck: l3..ctor: startup counter -> 25
 ```
 
 ## Build
@@ -58,6 +62,7 @@ Tested on Aurora 3.3.1 (AuroraPatch checksum `9jXVI8`), running a loaded game un
 | Economics | Population list empty | Populated |
 | Shipyard Create Task | No response | Reaches the game's own validation |
 | Commanders race selector | Commander tree empty | Populated |
+| Fleet window Add Move / map double-click | No response | Orders are issued |
 
 For check 1, the log confirms the detection method is patched at load. It hasn't yet been observed through a long enough run of increments for the 1-in-100 roll to fire.
 
